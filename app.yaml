@@ -1,0 +1,22 @@
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /stylesheets
+  static_dir: stylesheets
+
+- url: /public
+  static_dir: public
+
+- url: /.*
+  script: zarchive.app
+  login: required
+
+libraries:
+- name: webapp2
+  version: latest
+- name: jinja2
+  version: latest
+- name: django
+  version: latest
