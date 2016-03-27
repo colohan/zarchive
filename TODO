@@ -1,0 +1,23 @@
+- fix bug that renders line breaks properly in javascript but not django
+- create authorized users table, make sure all read/write requests are from
+  people we know and like
+- create admin interface for adding authorized users
+- create search functionality
+- advanced feature: allow backwards search upon scrolling up, forwards search on
+  scrolling down
+- displaying code in monospace font support
+- URL linkification
+- yellow highlighting of new messages that can be clicked away
+- display timezone-aware times
+- instance filtering support
+- context links that lead to searches
+- url links that lead to searches
+- attach unique monotonic zid to each message (this is only used for identifying
+  messages and ordering.  Time handles ordering, do we need the unique ID if we
+  can link to a message in some other form?)
+- either support graffiti (editing datastore?) or display warning stopping folks
+  from posting on graffiti
+- ephemeral messages support -- should be easy, just fail to log to datastore
+- private message support?  Needed at all?  Or can we just tell people to use or
+  provide direct links to gchat?  (Is gchat linkable?)
+- convert to TypeScript to make kosak happy

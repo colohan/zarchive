@@ -1,3 +1,5 @@
+import cgi
+import datetime
 import os
 import urllib
 
@@ -68,12 +70,15 @@ class MainPage(webapp2.RequestHandler):
             session.client_id = user.user_id();
             session.put()
 
-        # Just fetch the 50 most recent messages to populate the UI.  At some
+        # Just fetch the messages from the past day to populate the UI.  At some
         # point in the future we should make this customizable (perhaps after we
         # add search functionality).
-        messages_query = Message.query(
-            ancestor=messages_key()).order(Message.date)
-        messages = messages_query.fetch(50)
+        messages_query = Message.query(ancestor=messages_key()).filter(
+            Message.date > (datetime.datetime.now() -
+                            datetime.timedelta(days=1))
+        ).order(Message.date)
+        # Limit query to 10k messages in case something goes haywire.
+        messages = messages_query.fetch(10000)
 
         topic = self.request.get('topic', DEFAULT_TOPIC)
         token = channel.create_channel(user.user_id());
@@ -98,11 +103,11 @@ class MessageBroadcast():
 
     def encode_message(self):
         struct_message = {
-            'nickname': self.message.author.nickname,
-            'email': self.message.author.email,
-            'date': str(self.message.date),
-            'topic': self.message.topic,
-            'content': self.message.content
+            'nickname': cgi.escape(self.message.author.nickname),
+            'email': cgi.escape(self.message.author.email),
+            'date': cgi.escape(str(self.message.date)),
+            'topic': cgi.escape(self.message.topic),
+            'content': cgi.escape(self.message.content).replace("\n", "<br>")
         }
         return simplejson.dumps(struct_message)
 
