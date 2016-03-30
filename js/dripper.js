@@ -10,6 +10,24 @@ postForm = function(oFormElement) {
     }
 }
 
+// Make it so ctrl-Enter can send a message:
+onKeyDown = function(e) {
+    var keynum;
+    var keychar;
+    var numcheck;
+    keynum = e.keyCode;
+
+    if (e.ctrlKey && (keynum == 13 || // ctrl-Enter
+		      keynum == 77)) // ctrl-M (ctrl-Enter on mac firefox does this)
+    {
+	postForm(document.forms["messageForm"]);
+	document.getElementById('content').value='';
+	return false;
+    }
+    return true;
+}
+
+// Called every time a new message shows up from the server:
 onMessage = function(m) {
     // Parse the message received from the server:
     message = JSON.parse(m.data);
@@ -22,6 +40,7 @@ onMessage = function(m) {
         message.content + "</blockquote>";
 }
 
+// Initialization, called once upon page load:
 openChannel = function() {
     var channel = new goog.appengine.Channel(token);
     var handler = {

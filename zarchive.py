@@ -40,6 +40,9 @@ class Author(ndb.Model):
 class Message(ndb.Model):
     """A main model for representing an individual sent Message."""
     author = ndb.StructuredProperty(Author)
+    # Note that the date is the only indexed property.  This is because this
+    # table is only used for displaying the stream of messages, all searches are
+    # done using the Search API:
     date = ndb.DateTimeProperty(auto_now_add=True)
     topic = ndb.StringProperty(indexed=False)
     content = ndb.StringProperty(indexed=False)
@@ -48,6 +51,8 @@ class Message(ndb.Model):
 class Session(ndb.Model):
     """A main model for representing an user's session."""
     client_id = ndb.StringProperty(indexed=True)
+    # Not used, only for making administration easier:
+    email = ndb.StringProperty(indexed=False)
 
 
 class MainPage(webapp2.RequestHandler):
@@ -68,6 +73,7 @@ class MainPage(webapp2.RequestHandler):
         if not query.iter().has_next():
             session = Session(parent=sessions_key())
             session.client_id = user.user_id();
+            session.email = user.email();
             session.put()
 
         # Just fetch the messages from the past day to populate the UI.  At some
@@ -133,6 +139,8 @@ class SendMessage(webapp2.RequestHandler):
             self.redirect(users.create_login_url(self.request.uri))
             return
 
+        # Create a Message and store it in the DataStore.
+        #
         # We set the same parent key on the 'Message' to ensure each Message is
         # in the same entity group. Queries across the single entity group will
         # be consistent. However, the write rate to a single entity group should
