@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+{% autoescape true %}
+<html>
+  <head>
+    <link type="image/x-icon" rel="shortcut icon" href="/public/z.ico" />
+    <link type="text/css" rel="stylesheet" href="/stylesheets/main.css" />
+  </head>
+
+  <body>
+    <form action="/search" method="post">
+      Query: <input value="{{ query }}" name="query" size="60">
+      Max results: <input type="number" value="{{ num_results }}"
+			  name="num_results" size="4">
+      <div><input type="submit" value="Search"></div>
+    </form>
+    {% for result in results %}
+    <b>{{ result.author.nickname }} ({{ result.author.email }})
+      ({{ result.topic }}) [{{ result.date }}]
+    </b>
+    <blockquote>{{ result.content }}</blockquote>
+    {% endfor %}
+  </body>
+</html>
+{% endautoescape %}
+
+
+

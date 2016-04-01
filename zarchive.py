@@ -2,14 +2,15 @@ import cgi
 import datetime
 import os
 import urllib
+import jinja2
+import webapp2
+import messageindex
 
 from django.utils import simplejson
 from google.appengine.api import channel
 from google.appengine.api import users
 from google.appengine.ext import ndb
 
-import jinja2
-import webapp2
 
 JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)),
@@ -43,7 +44,7 @@ class Message(ndb.Model):
     # Note that the date is the only indexed property.  This is because this
     # table is only used for displaying the stream of messages, all searches are
     # done using the Search API:
-    date = ndb.DateTimeProperty(auto_now_add=True)
+    date = ndb.DateTimeProperty()
     topic = ndb.StringProperty(indexed=False)
     content = ndb.StringProperty(indexed=False)
 
@@ -89,6 +90,12 @@ class MainPage(webapp2.RequestHandler):
         topic = self.request.get('topic', DEFAULT_TOPIC)
         token = channel.create_channel(user.user_id());
             
+        print "messages: " + str(messages)
+        
+        # FIXME: should clone messages array and cgi.escape all elements in it,
+        # instead of relying upon JINJA to do this.  In the process, we can
+        # replace newlines with <br> (see encode_message below for code).
+
         template_values = {
             'user': user,
             'messages': messages,
@@ -99,6 +106,44 @@ class MainPage(webapp2.RequestHandler):
         template = JINJA_ENVIRONMENT.get_template('index.html')
         self.response.write(template.render(template_values))
 
+
+def safeStrToInt(s):
+    try:
+        return int(s)
+    except ValueError:
+        return 10
+
+
+class SearchPage(webapp2.RequestHandler):
+    """Generates the search results page."""
+    def get(self):
+        self.post()
+
+    def post(self):
+        user = users.get_current_user()
+        if not user:
+            # This should never happen, as AppEngine should only get to this
+            # handler if the user is signed in.  But defense in depth applies...
+            self.redirect(users.create_login_url(self.request.uri))
+            return
+
+        query = self.request.get('query', '')
+        num_results = safeStrToInt(self.request.get('num_results', '10'))
+
+        urlsafe_keys = messageindex.find(query, num_results)
+
+        results = []
+        for urlsafe_key in urlsafe_keys:
+            results.append(ndb.Key(urlsafe=urlsafe_key).get())
+
+        template_values = {
+            'query': query,
+            'num_results': num_results,
+            'results': results
+        }
+
+        template = JINJA_ENVIRONMENT.get_template('search.html')
+        self.response.write(template.render(template_values))
 
 class MessageBroadcast():
     """Given a message, broadcast it to all users who have opened the UI."""
@@ -154,8 +199,12 @@ class SendMessage(webapp2.RequestHandler):
                 nickname=user.nickname(),
                 email=user.email())
         message.content = self.request.get('content')
-        message.put()
+        message.date = datetime.datetime.now()
+        message_key = message.put()
 
+        # Index the message so it is available for future searches:
+        messageindex.add(message_key.urlsafe(), message)
+        
         # Now that we've recorded the message in the DataStore, broadcast it to
         # all open clients.
         broadcast = MessageBroadcast(message)
@@ -165,4 +214,5 @@ class SendMessage(webapp2.RequestHandler):
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/send', SendMessage),
+    ('/search', SearchPage),
 ], debug=True)
