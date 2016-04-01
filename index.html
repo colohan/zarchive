@@ -14,10 +14,10 @@
   <body>
     <div id="messages">
     {% for message in messages %}
-    <b>{{ message.author.nickname }} ({{ message.author.email }})
-      ({{ message.topic }}) [{{ message.date }}]
+    <b>{{ message.nickname|safe }} ({{ message.email|safe }})
+      ({{ message.topic|safe }}) [{{ message.date|safe }}]
     </b>
-    <blockquote>{{ message.content }}</blockquote>
+    <blockquote>{{ message.content|safe }}</blockquote>
     {% endfor %}
     </div>
 
@@ -35,6 +35,13 @@
 			  name="num_results" size="4">
       <div><input type="submit" value="Search"></div>
     </form>
+    <hr>
+    <br>Queries can use the full syntax of
+    the <a href="https://cloud.google.com/appengine/docs/python/search/query_strings">Search
+      API</a>.
+    <br>Example queries: [author:colohan] [topic:chat AND burritos] [email:jch]
+    [date >= 2000-12-31] [content:"prom date"]
+    
   </body>
 </html>
 {% endautoescape %}

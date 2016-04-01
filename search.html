@@ -14,7 +14,7 @@
       <div><input type="submit" value="Search"></div>
     </form>
     {% for result in results %}
-    <b>{{ result.author.nickname }} ({{ result.author.email }})
+    <b>{{ result.nickname }} ({{ result.email }})
       ({{ result.topic }}) [{{ result.date }}]
     </b>
     <blockquote>{{ result.content }}</blockquote>
@@ -23,5 +23,11 @@
 </html>
 {% endautoescape %}
 
+<hr>
+<br>Queries can use the full syntax of
+the <a href="https://cloud.google.com/appengine/docs/python/search/query_strings">Search
+  API</a>.
+<br>Example queries: [author:colohan] [topic:chat AND burritos] [email:jch]
+[date >= 2000-12-31] [content:"prom date"]
 
 

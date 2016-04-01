@@ -56,6 +56,19 @@ class Session(ndb.Model):
     email = ndb.StringProperty(indexed=False)
 
 
+def message_to_struct(message):
+    """Transforms a Message into a simple structure for passing to HTML."""
+
+    struct_message = {
+        'nickname': cgi.escape(message.author.nickname),
+        'email': cgi.escape(message.author.email),
+        'date': cgi.escape(str(message.date)),
+        'topic': cgi.escape(message.topic),
+        'content': cgi.escape(message.content).replace("\n", "<br>")
+    }
+    return struct_message
+
+
 class MainPage(webapp2.RequestHandler):
     """Generates the main web page."""
     def get(self):
@@ -80,18 +93,20 @@ class MainPage(webapp2.RequestHandler):
         # Just fetch the messages from the past day to populate the UI.  At some
         # point in the future we should make this customizable (perhaps after we
         # add search functionality).
-        messages_query = Message.query(ancestor=messages_key()).filter(
+        query = Message.query(ancestor=messages_key()).filter(
             Message.date > (datetime.datetime.now() -
                             datetime.timedelta(days=1))
         ).order(Message.date)
         # Limit query to 10k messages in case something goes haywire.
-        messages = messages_query.fetch(10000)
+        query_results = query.fetch(10000)
+
+        messages = []
+        for result in query_results:
+            messages.append(message_to_struct(result))
 
         topic = self.request.get('topic', DEFAULT_TOPIC)
         token = channel.create_channel(user.user_id());
             
-        print "messages: " + str(messages)
-        
         # FIXME: should clone messages array and cgi.escape all elements in it,
         # instead of relying upon JINJA to do this.  In the process, we can
         # replace newlines with <br> (see encode_message below for code).
@@ -134,7 +149,8 @@ class SearchPage(webapp2.RequestHandler):
 
         results = []
         for urlsafe_key in urlsafe_keys:
-            results.append(ndb.Key(urlsafe=urlsafe_key).get())
+            results.append(message_to_struct(
+                ndb.Key(urlsafe=urlsafe_key).get()))
 
         template_values = {
             'query': query,
@@ -145,6 +161,7 @@ class SearchPage(webapp2.RequestHandler):
         template = JINJA_ENVIRONMENT.get_template('search.html')
         self.response.write(template.render(template_values))
 
+
 class MessageBroadcast():
     """Given a message, broadcast it to all users who have opened the UI."""
     message = None
@@ -153,14 +170,7 @@ class MessageBroadcast():
         self.message = message
 
     def encode_message(self):
-        struct_message = {
-            'nickname': cgi.escape(self.message.author.nickname),
-            'email': cgi.escape(self.message.author.email),
-            'date': cgi.escape(str(self.message.date)),
-            'topic': cgi.escape(self.message.topic),
-            'content': cgi.escape(self.message.content).replace("\n", "<br>")
-        }
-        return simplejson.dumps(struct_message)
+        return simplejson.dumps(message_to_struct(self.message))
 
     def send_message(self, dest):
         str_message = self.encode_message()
