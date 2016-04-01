@@ -14,10 +14,10 @@
       <div><input type="submit" value="Search"></div>
     </form>
     {% for result in results %}
-    <b>{{ result.nickname }} ({{ result.email }})
-      ({{ result.topic }}) [{{ result.date }}]
+    <b>{{ result.nickname|safe }} ({{ result.email|safe }})
+      ({{ result.topic|safe }}) [{{ result.date|safe }}]
     </b>
-    <blockquote>{{ result.content }}</blockquote>
+    <blockquote>{{ result.content|safe }}</blockquote>
     {% endfor %}
   </body>
 </html>
