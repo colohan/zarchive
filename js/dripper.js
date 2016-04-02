@@ -40,18 +40,33 @@ onMessage = function(m) {
         message.content + "</blockquote>";
 }
 
+onOpen = function() {
+    document.getElementById("dripper_status").innerHTML = 
+        "<b>Channel to server opened.</b>";
+}
+
+onError = function(e) {
+    document.getElementById("dripper_status").innerHTML = 
+        "<b>Error taking to server: " + e.description + " [code: " +
+	e.code + "].</b>";
+}
+
+onClose = function() {
+    document.getElementById("dripper_status").innerHTML = 
+        "<b>Channel to server closed, try refreshing window.</b>";
+    // FIXME:  Really we should just periodically retry here, I think.
+}
+
 // Initialization, called once upon page load:
 openChannel = function() {
     var channel = new goog.appengine.Channel(token);
     var handler = {
-        'onopen': function() {},
+        'onopen': onOpen,
         'onmessage': onMessage,
-        'onerror': function() {},
-        'onclose': function() {}
+        'onerror': onError,
+        'onclose': onClose
     };
     var socket = channel.open(handler);
-    //socket.onopen = onOpened;
-    socket.onmessage = onMessage;
 }
 
 setTimeout(openChannel, 100);
