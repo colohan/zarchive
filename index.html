@@ -2,22 +2,28 @@
 {% autoescape true %}
 <html>
   <head>
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js"></script>
+    <!-- Google's channel API, used by the dripper to receive messages as they
+      -- come in: -->
     <script src='/_ah/channel/jsapi'></script>
     <script>
       var token = '{{ token }}';
     </script>
     <script src='js/dripper.js'></script>
-    <link type="image/x-icon" rel="shortcut icon" href="/public/z.ico" />
+
+    <link type="image/x-icon" rel="shortcut icon" href="/public/z16.ico" />
     <link type="text/css" rel="stylesheet" href="/stylesheets/main.css" />
   </head>
 
   <body>
-    <div id="messages">
+    <div class="message">
     {% for message in messages %}
+    <div>
     <b>{{ message.nickname|safe }} ({{ message.email|safe }})
       ({{ message.topic|safe }}) [{{ message.date|safe }}]
     </b>
     <blockquote>{{ message.content|safe }}</blockquote>
+    </div>
     {% endfor %}
     </div>
 
@@ -41,13 +47,7 @@
       API</a>.
     <br>Example queries: [author:colohan] [topic:chat AND burritos] [email:jch]
     [date >= 2000-12-31] [content:"prom date"]
-    
-    <hr>
-    <div id="dripper_status">
-    </div>
+    <div id="scratch_space"></div>
   </body>
 </html>
 {% endautoescape %}
-
-
-

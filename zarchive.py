@@ -5,8 +5,9 @@ import urllib
 import jinja2
 import webapp2
 import messageindex
+import json
 
-from django.utils import simplejson
+
 from google.appengine.api import channel
 from google.appengine.api import users
 from google.appengine.ext import ndb
@@ -74,15 +75,26 @@ class MainPage(webapp2.RequestHandler):
     def get(self):
         user = users.get_current_user()
         if not user:
-            # This should never happen, as AppEngine should only get to this
+            # This should never happen, as AppEngine should only run this
             # handler if the user is signed in.  But defense in depth applies...
             self.redirect(users.create_login_url(self.request.uri))
             return
 
         # If this user has not used the system before, add their user_id to the
-        # table of IDs which we attempt to broadcast all messages to.  (Note
-        # that once you are in this table, you never leave...  In an ideal world
-        # we'd expire entries when people close the web page.)
+        # table of IDs which we attempt to broadcast all messages to.
+        #
+        # Room for improvement: right now this table will grow endlessly as more
+        # and more people use the system.  This may not scale if the system
+        # becomes popular.  We actually only want a list of people with open
+        # sessions.
+        #
+        # Idea: have a heartbeat from clients, and expire entries in this table
+        # which have not gotten a heartbeat in a long time.  You might worry
+        # that this server could be DoSed by getting too many heartbeats from a
+        # large number of simultaneously active clients -- but this system is
+        # already broadcasting to all active clients anyways, so we'll hit
+        # scaling issues in the broadcast (which we'll have to solve) long
+        # before we get DoSed by inbound heartbeats.
         query = Session.query(Session.client_id == user.user_id())
         if not query.iter().has_next():
             session = Session(parent=sessions_key())
@@ -90,15 +102,15 @@ class MainPage(webapp2.RequestHandler):
             session.email = user.email();
             session.put()
 
-        # Just fetch the messages from the past day to populate the UI.  At some
-        # point in the future we should make this customizable (perhaps after we
-        # add search functionality).
+        # Just fetch the messages from the past month to populate the UI.  At
+        # some point in the future we should make this customizable (perhaps
+        # after we add search functionality).
         query = Message.query(ancestor=messages_key()).filter(
             Message.date > (datetime.datetime.now() -
-                            datetime.timedelta(days=1))
+                            datetime.timedelta(days=30))
         ).order(Message.date)
-        # Limit query to 10k messages in case something goes haywire.
-        query_results = query.fetch(10000)
+        # Limit query to 1000 messages in case something goes haywire.
+        query_results = query.fetch(1000)
 
         messages = []
         for result in query_results:
@@ -137,7 +149,7 @@ class SearchPage(webapp2.RequestHandler):
     def post(self):
         user = users.get_current_user()
         if not user:
-            # This should never happen, as AppEngine should only get to this
+            # This should never happen, as AppEngine should only run this
             # handler if the user is signed in.  But defense in depth applies...
             self.redirect(users.create_login_url(self.request.uri))
             return
@@ -170,7 +182,7 @@ class MessageBroadcast():
         self.message = message
 
     def encode_message(self):
-        return simplejson.dumps(message_to_struct(self.message))
+        return json.dumps(message_to_struct(self.message))
 
     def send_message(self, dest):
         str_message = self.encode_message()
@@ -189,7 +201,7 @@ class SendMessage(webapp2.RequestHandler):
     def post(self):
         user = users.get_current_user()
         if not user:
-            # This should never happen, as AppEngine should only get to this
+            # This should never happen, as AppEngine should only run this
             # handler if the user is signed in.  But defense in depth applies...
             self.redirect(users.create_login_url(self.request.uri))
             return
