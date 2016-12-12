@@ -61,9 +61,10 @@ def message_to_struct(message):
     """Transforms a Message into a simple structure for passing to HTML."""
 
     struct_message = {
+        'id': cgi.escape(message.date.isoformat()),
         'nickname': cgi.escape(message.author.nickname),
         'email': cgi.escape(message.author.email),
-        'date': cgi.escape(str(message.date)),
+        'date': cgi.escape(message.date.strftime('%x %X')),
         'topic': cgi.escape(message.topic),
         'content': cgi.escape(message.content).replace("\n", "<br>")
     }
@@ -102,18 +103,18 @@ class MainPage(webapp2.RequestHandler):
             session.email = user.email();
             session.put()
 
-        # Just fetch the messages from the past month to populate the UI.  At
+        # Just fetch some messages from the past month to populate the UI.  At
         # some point in the future we should make this customizable (perhaps
         # after we add search functionality).
         query = Message.query(ancestor=messages_key()).filter(
             Message.date > (datetime.datetime.now() -
                             datetime.timedelta(days=30))
-        ).order(Message.date)
-        # Limit query to 1000 messages in case something goes haywire.
-        query_results = query.fetch(1000)
+        ).order(-Message.date)
+        # Limit query to 50 messages in case something goes haywire.
+        query_results = query.fetch(50)
 
         messages = []
-        for result in query_results:
+        for result in reversed(query_results):
             messages.append(message_to_struct(result))
 
         topic = self.request.get('topic', DEFAULT_TOPIC)
@@ -174,18 +175,21 @@ class SearchPage(webapp2.RequestHandler):
         self.response.write(template.render(template_values))
 
 
-class MessageBroadcast():
-    """Given a message, broadcast it to all users who have opened the UI."""
+class MessagesBroadcast():
+    """Given an array of messages, broadcast it to all users who have opened the UI."""
     message = None
 
-    def __init__(self, message):
-        self.message = message
+    def __init__(self, messages):
+        self.messages = messages
 
-    def encode_message(self):
-        return json.dumps(message_to_struct(self.message))
+    def encode_messages(self):
+        struct_encoded = []
+        for message in self.messages:
+            struct_encoded.append(message_to_struct(message))
+        return json.dumps(struct_encoded)
 
-    def send_message(self, dest):
-        str_message = self.encode_message()
+    def send_messages(self, dest):
+        str_message = self.encode_messages()
         channel.send_message(dest, str_message)
 
     def send(self):
@@ -193,7 +197,7 @@ class MessageBroadcast():
         # them:
         session_query = Session.query(ancestor=sessions_key())
         for session in session_query:
-            self.send_message(session.client_id)
+            self.send_messages(session.client_id)
 
 
 class SendMessage(webapp2.RequestHandler):
@@ -229,12 +233,37 @@ class SendMessage(webapp2.RequestHandler):
         
         # Now that we've recorded the message in the DataStore, broadcast it to
         # all open clients.
-        broadcast = MessageBroadcast(message)
+        broadcast = MessagesBroadcast([message])
         broadcast.send()
+
+
+class GetMessages(webapp2.RequestHandler):
+    """Handler for the /get POST request."""
+    def post(self):
+        user = users.get_current_user()
+        if not user:
+            # This should never happen, as AppEngine should only run this
+            # handler if the user is signed in.  But defense in depth applies...
+            self.redirect(users.create_login_url(self.request.uri))
+            return
+
+        older_than_id = self.request.get('older_than')
+        older_than = datetime.datetime.strptime(older_than_id,
+                                                "%Y-%m-%dT%H:%M:%S.%f")
+
+        query = Message.query(ancestor=messages_key()).filter(Message.date <
+                                                              older_than
+        ).order(-Message.date)
+        # Limit query to 50 messages:
+        query_results = query.fetch(50)
+
+        broadcast = MessagesBroadcast(query_results)
+        broadcast.send_messages(user.user_id())
 
             
 app = webapp2.WSGIApplication([
     ('/', MainPage),
     ('/send', SendMessage),
+    ('/get', GetMessages),
     ('/search', SearchPage),
 ], debug=True)

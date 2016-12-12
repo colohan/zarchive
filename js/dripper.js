@@ -30,14 +30,49 @@ onKeyDown = function(e) {
 // Called every time a new message shows up from the server:
 onMessage = function(m) {
     // Parse the message received from the server:
-    message = JSON.parse(m.data);
+    var messages = JSON.parse(m.data);
 
-    // Then simply append it to our list of messages:
-    document.getElementById("messages").innerHTML = 
-        document.getElementById("messages").innerHTML +
-        "<div class=\"message\"<b>" + message.nickname + " (" + message.email + ") (" +
-        message.topic + ") [" + message.date + "]</b><blockquote>" +
-        message.content + "</blockquote></div>";
+    var height_before = $(document).height();
+    for (var i = 0; i < messages.length; i++) {
+	var message = messages[i];
+	
+	var html = "<div class=\"message\" data-messageid=\"" + message.id +
+	    "\"><b title=\"" + message.email + "\">" + message.nickname + " (" +
+            message.topic + ") [" + message.date + "]</b><blockquote>" +
+            message.content + "</blockquote></div>";
+
+	// Now we need to figure out where to add this message.  Optimize for
+	// the common cases of it being inserted first or last:
+	if ($(".message").last().attr("data-messageid") < message.id) {
+	    $(".message").last().after(html);
+
+	} else {
+	    var iter = $(".message").first();
+	    while (iter != null) {
+		if (iter.attr("data-messageid") == message.id) {
+		    // Discard duplicate message:
+		    iter = null;
+
+		} else if (iter.attr("data-messageid") > message.id) {
+		    iter.before(html);
+		    iter = null;
+
+		} else {
+		    iter = iter.next();
+		}
+	    }
+	}
+    }
+    var height_after = $(document).height();
+    
+    // Lame attempt at making the window not scroll as we insert
+    // new messages at the top.  This doesn't work very well,
+    // feel free to improve this if you are reading this.  :-)
+    var new_scroll_position = height_after - height_before;
+    if (new_scroll_position > 0) {
+	$(window).scrollTop(new_scroll_position);
+    }
+    
 }
 
 onOpen = function() {
@@ -52,8 +87,8 @@ onError = function(e) {
 onClose = function() {
     console.log("Channel to server closed");
     
-    // Just retry:
-    openChannel();
+    // Just sleep 5s and retry:
+    setTimeout(openChannel, 5000);
 }
 
 // Initialization, called once upon page load:
@@ -69,48 +104,17 @@ openChannel = function() {
 }
 
 fetchMoreMessages = function() {
-    document.getElementById("messages").innerHTML = 
-	"<div class=\"message\"><b>fake top message (fake@fake.com) (fake.topic) [1999-01-01 12:00:00.000000]</b><blockquote>This is a fake message.</blockquote></div>" +
-	document.getElementById("messages").innerHTML;
+    var last_id = $(".message").first().attr("data-messageid")
+    $.post("get", {older_than: last_id});
+    // message = "<div class=\"message\" data-messageid=\"" + (last_id - 1) + "\"><b>fake top message (fake@fake.com) (fake.topic) [1999-01-01 12:00:00.000000]</b><blockquote>This is a fake message.</blockquote></div>";
+    // $(".message").first().before(message);
 }
 
 onScroll = function() {
     // If the user scrolls up to the top of the window, load some older
     // messages to display for them and insert them into the top.
     if ($(window).scrollTop() == 0){
-//	// Attempted way of making the window not scroll as we insert new
-//	// messages at the top.  For some reason we occasionally get multiple
-//	// scroll events() with scrollTop() == 0, which makes this code fail.  I
-//	// clearly don't know javascript well enough, as my attempts to fix have
-//	// failed.  Feel free to tell me how to fix this if you are reading
-//	// this.  :-)
-//	document.getElementById("scratch_space").innerHTML = 
-//	    document.getElementById("messages").innerHTML;
-//
-//	height_before = $(scratch_space).height();
-//
-//	document.getElementById("scratch_space").innerHTML = 
-//	    "<b>fake top message (fake@fake.com) (fake.topic) [1999-01-01 12:00:00.000000]</b><blockquote>This is a fake message.</blockquote>" +
-//	    document.getElementById("messages").innerHTML;
-//
-//
-//	height_after = $(scratch_space).height();
-//	document.getElementById("scratch_space").innerHTML = "";
-//	console.log("height_before=" + height_before + " height_after=" + height_after);
-//
-//	new_scroll_position = height_after - height_before;
-//	if (new_scroll_position > 0) {
-//	    //$(window).off("scroll", onScroll);
-//	    //$(window).on("scroll", eatScrollEvent);
-//
-//	    $(window).scrollTop(new_scroll_position);
-//	    console.log("new_scroll_position=" + new_scroll_position);
-//	}
-//
-//	fetchMoreMessages();
-	fake = "<div class=\"message\"><b title=\"fake@fake.com\">fake top message (fake.topic) [1999-01-01 12:00:00.000000]</b><br>This is a fake message.</div>";
-	$(".message").first().before(fake + fake + fake + fake + fake + fake + fake + fake + fake + fake);
-	$(window).scrollTop($(".message").first().height() * 10);
+	fetchMoreMessages();
     }
 }
 
