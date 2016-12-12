@@ -32,6 +32,7 @@ onMessage = function(m) {
     // Parse the message received from the server:
     var messages = JSON.parse(m.data);
 
+    var posted_at_bottom = false;
     var height_before = $(document).height();
     for (var i = 0; i < messages.length; i++) {
 	var message = messages[i];
@@ -45,6 +46,7 @@ onMessage = function(m) {
 	// the common cases of it being inserted first or last:
 	if ($(".message").last().attr("data-messageid") < message.id) {
 	    $(".message").last().after(html);
+	    posted_at_bottom = true;
 
 	} else {
 	    var iter = $(".message").first();
@@ -69,7 +71,7 @@ onMessage = function(m) {
     // new messages at the top.  This doesn't work very well,
     // feel free to improve this if you are reading this.  :-)
     var new_scroll_position = height_after - height_before;
-    if (new_scroll_position > 0) {
+    if (new_scroll_position > 0 && !posted_at_bottom) {
 	$(window).scrollTop(new_scroll_position);
     }
     
